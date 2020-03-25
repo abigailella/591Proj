@@ -10,8 +10,9 @@ import edu.stanford.nlp.pipeline.StanfordCoreNLP;
 public class DocumentTermMatrix {
     File fileToOpen = new File("newsSourcesSAMPLED500.csv");
     File fileToWrite = new File ("newsSourcesOut.csv");
+    String stopWordsPath = "stopWords.txt";
     PrintWriter pw = new PrintWriter(fileToWrite);
-    int idxTitle = 1, idxArticle = 2, idxCategory = 0;
+    int idxTitle = 2, idxArticle = 3, idxSource = 0, idxDate = 4, idxAuthor = 1;
 
     ArrayList<String[]> fileArray = new ArrayList<>();
     ArrayList<String> titleArray = new ArrayList<>();
@@ -37,6 +38,15 @@ public class DocumentTermMatrix {
     }
 
 
+    private TreeMap<String, Integer> constructSentimentArray(){
+        TreeMap<String, Integer> sentMap = new TreeMap<>();
+        sentMap.put("Positive", 0);
+        sentMap.put("Neutral", 0);
+        sentMap.put("Negative", 0);
+
+        return sentMap;
+    }
+
     /**
      * Construct a TreeMap for each article (Sting: Word -> Integer: Frequency Count)
      */
@@ -45,25 +55,17 @@ public class DocumentTermMatrix {
         System.out.println("file opened successfully");
         makeTemplateMap();
         System.out.println("template file created successfully");
-        printHeader(templateMap);
+        TreeMap<String, Integer> sentMap = constructSentimentArray();
+        printHeader(templateMap, sentMap);
         System.out.println("header printed");
         String category;
-
-//        for (int i = 0; i < 4; i++) {
-//            for (int j = 0; j < 3; j++) {
-//                System.out.print(i + " : " + j + ":::");
-//                System.out.println(fileArray.get(i)[j]);
-//
-//            }
-//
-//        }
 
 
         for (String[] article : fileArray) {
             //Store FAKE or REAL label
             try {
-                categoryArray.add(article[idxCategory].trim());
-                category = article[idxCategory].trim();
+                categoryArray.add(article[idxSource].trim());
+                category = article[idxSource].trim();
                 System.out.println("category array created successfully");
             } catch (Exception e) {
                 continue;
@@ -84,18 +86,20 @@ public class DocumentTermMatrix {
             pipeline.annotate(document);
             for (int i = 0; i < document.tokens().size(); i++) {
                 try {
-                    String word = document.tokens().get(i).lemma().toLowerCase();
-                    if (word.matches("\\w+")) rowMap.put(word, rowMap.get(word) + 1);
+                    String word = document.tokens().get(i).lemma().toLowerCase().trim();
+                    if (rowMap.containsKey(word)) rowMap.put(word, rowMap.get(word) + 1);
+//                    if (word.matches("\\w+")) rowMap.put(word, rowMap.get(word) + 1);
                 } catch (Exception e) {
                     continue;
                 }
             }
 
-            //Store sentiment count
-            TreeMap<String, Integer> sentMap = new TreeMap<>();
+            //reset sentiment count
+
             sentMap.put("Positive", 0);
             sentMap.put("Neutral", 0);
             sentMap.put("Negative", 0);
+
 
             for (int i = 0; i < document.sentences().size(); i++) {
                 try {
@@ -110,7 +114,7 @@ public class DocumentTermMatrix {
 
 
             //Output a new row in file
-            printRow(rowMap, category);
+            printRow(rowMap, category, sentMap);
 
         }
         pw.close();
@@ -146,6 +150,8 @@ public class DocumentTermMatrix {
      * Create a map with all distinct words in all document
      */
     private void makeTemplateMap() {
+        ArrayList<String> stopWords = constructStopWordsArray(stopWordsPath);
+
         //Get all distinct words
         for (String[] row : fileArray) {
             CoreDocument document = null;
@@ -158,8 +164,12 @@ public class DocumentTermMatrix {
 
             for (int i = 0; i < document.tokens().size(); i++) {
                 try {
-                    String word = document.tokens().get(i).lemma().toLowerCase();
-                    if (word.matches("\\b[a-zA-Z]+")) templateMap.put(word, 0);
+                    String word = document.tokens().get(i).lemma().toLowerCase().trim();
+                    if (word.matches("\\b[a-zA-Z]+") && !stopWords.contains(word)){
+                        templateMap.put(word, 0);
+                        if (word.equals("about")) System.out.println("HAS WORD ABOUT");
+                    }
+
                 } catch (Exception e) {
                     continue;
                 }
@@ -173,8 +183,9 @@ public class DocumentTermMatrix {
      * @param tMap Treemap of embeddings
      * @param cat Fake or Real
      */
-    private void printRow(TreeMap tMap, String cat){
+    private void printRow(TreeMap tMap, String cat, TreeMap sentMap){
         pw.print(cat);
+        sentMap.values().forEach(value -> pw.print("," + value));
         tMap.values().forEach(value -> pw.print("," + value));
         pw.println();
         pw.flush();
@@ -185,11 +196,40 @@ public class DocumentTermMatrix {
      * Print Header from template map
      * @param tMap
      */
-    private void printHeader(TreeMap tMap){
+    private void printHeader(TreeMap tMap, TreeMap sentMap){
         pw.print("Category");
+        sentMap.keySet().forEach(sentiment -> pw.print("," + sentiment));
         tMap.keySet().forEach(key -> pw.print("," + key) );
         pw.println();
         pw.flush();
+
+    }
+
+    /**
+     * Read stop words into arraylist from file.
+     */
+    private ArrayList<String> constructStopWordsArray(String fileName) {
+        ArrayList<String> stopWords = new ArrayList<>();
+        File file = new File(fileName);
+
+
+        try(Scanner userFile = new Scanner(file)) {
+//            Scanner userFile = new Scanner(file);
+            userFile.useDelimiter("\\n");
+
+            while (userFile.hasNext()){
+                stopWords.add(userFile.next().trim());
+            }
+
+
+        } catch (FileNotFoundException e) {
+            System.out.println("Could not find stop words file.");
+        }
+
+
+
+        return stopWords;
+
 
     }
 
