@@ -8,7 +8,7 @@ import edu.stanford.nlp.pipeline.StanfordCoreNLP;
 
 //test comment
 public class DocumentTermMatrix {
-    File fileToOpen = new File("newsSources.csv");
+    File fileToOpen = new File("newsSourcesSAMPLED500.csv");
     File fileToWrite = new File ("newsSourcesOut.csv");
     PrintWriter pw = new PrintWriter(fileToWrite);
     int idxTitle = 1, idxArticle = 2, idxCategory = 0;
@@ -134,12 +134,11 @@ public class DocumentTermMatrix {
                 loopCounter++;
                 if (loopCounter == 3) break;
 
-
-
             }
         } catch (FileNotFoundException e) {
             System.out.println("document not found");
         }
+
 
     }
 
